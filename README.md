@@ -5,7 +5,7 @@ Live translation for [pi](https://github.com/earendil-works/pi): your input is t
 
 - Automatic source-language detection — type in any language
 - Bidirectional: both input→output and reply→display translation, each toggleable independently (`/translator input` translates only input)
-- Real-time display swap: reply prose is translated as the message finalizes and the rendered Markdown swaps to your reading language on the spot; in-flight input translation shows a live status (`→en · Esc`) and Esc cancels it mid-flight
+- Real-time display: while a reply is being generated you see a localized "translating…" placeholder, never the untranslated original; when translation completes (typically 1–3s on a local model) the rendered Markdown swaps directly to your reading language
 - Code blocks, inline code, commands, paths, and URLs stay byte-for-byte intact
 - Translation runs on a separate, user-selected model; the main model choice is never changed
 - Fails closed on input: a failed translation is never sent — your draft is restored to the editor
@@ -132,7 +132,7 @@ Use a hosted model you have already authenticated in pi — no extra setup is ne
 ## How it works
 
 - **Input direction (fail-closed):** your prose is translated to the output language before dispatch. If translation fails, nothing is sent and your draft returns to the editor. Commands, `!shell`, paths, and code are never translated.
-- **Display direction (degrades gracefully):** the reply's prose segments are translated when the message finalizes, and a Markdown display transform swaps in the cached translation. History and what the model receives are untouched. On failure the original text is shown.
+- **Display direction (degrades gracefully):** replies show a "translating…" placeholder while generating; prose segments are translated when the message finalizes, and a Markdown display transform swaps in the cached translation. History and what the model receives are untouched. On failure the original text is shown.
 - A system-prompt hook asks the main model to write its replies in the output language, preserving your task, code, paths, and tool arguments.
 
 ## Privacy
