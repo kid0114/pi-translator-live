@@ -1,4 +1,4 @@
-# pi-translator-live 🔥
+# pi-translator-live 【焚诀】
 
 [English](README.md)
 
