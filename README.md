@@ -1,10 +1,11 @@
-# pi-translator-live
-
+# pi-translator-live 🔥
 [繁體中文](README.zh-TW.md)
 
 Live translation for [pi](https://github.com/earendil-works/pi): your input is translated into the **output language** (the language the main model thinks and replies in), and the model's replies are displayed in your **input language** (your reading language). Session history keeps the original text; translations are display-only and never touch what the model sees.
 
 - Automatic source-language detection — type in any language
+- Bidirectional: both input→output and reply→display translation, each toggleable independently (`/translator input` translates only input)
+- Real-time display swap: reply prose is translated as the message finalizes and the rendered Markdown swaps to your reading language on the spot; in-flight input translation shows a live status (`→en · Esc`) and Esc cancels it mid-flight
 - Code blocks, inline code, commands, paths, and URLs stay byte-for-byte intact
 - Translation runs on a separate, user-selected model; the main model choice is never changed
 - Fails closed on input: a failed translation is never sent — your draft is restored to the editor
