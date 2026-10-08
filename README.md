@@ -17,10 +17,25 @@ Live translation for [pi](https://github.com/earendil-works/pi): your input is t
 pi install git:github.com/kid0114/pi-translator-live
 ```
 
+Then restart pi. On the first interactive session a one-time picker asks you to choose the default translator model; your choice is saved to `~/.pi/agent/translator.json`.
+
 Try it without installing:
 
 ```bash
 pi -e git:github.com/kid0114/pi-translator-live
+```
+
+Pin a release instead of tracking master:
+
+```bash
+pi install git:github.com/kid0114/pi-translator-live@v0.1.0
+```
+
+Update / remove:
+
+```bash
+pi update --extensions
+pi remove git:github.com/kid0114/pi-translator-live
 ```
 
 ## Requirements
