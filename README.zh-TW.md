@@ -66,13 +66,13 @@ pi remove git:github.com/kid0114/pi-translator-live
 
 > 命名說明：`default input` 選的是回覆**顯示**的語言；`default output` 選的是你的輸入被翻譯**成**的語言，也就是主模型回覆所用的語言。
 
-語言參數接受代碼（`en`、`zh-CN`、`zh-TW`、`ja`……）或英文名稱；省略參數可開啟選擇器。內建 32 種語言。
+語言參數接受代碼（`en`、`zh-CN`、`zh-TW`、`ja`……）或英文名稱；省略參數則開啟選擇器。內建 33 種語言。
 
 輸入翻譯進行中可按 Esc 取消。
 
 ## 支援語言
 
-內建 32 種語言，任一種都可作為輸入（顯示）語言或輸出（主模型）語言，任意組合——來源語言由翻譯模型自動偵測。
+內建 33 種語言，任一種都可作為輸入（顯示）語言或輸出（主模型）語言，任意組合——來源語言由翻譯模型自動偵測。
 
 | 代碼 | 語言 | 代碼 | 語言 |
 |---|---|---|---|
@@ -92,10 +92,11 @@ pi remove git:github.com/kid0114/pi-translator-live
 | `ur` | 烏爾都語 | `te` | 泰盧固語 |
 | `mr` | 馬拉地語 | `bn` | 孟加拉語 |
 | `ta` | 泰米爾語 | `jv` | 爪哇語 |
+| `he` | 希伯來語 | | |
 
 用 `/translator default input <代碼>`（顯示）與 `/translator default output <代碼>`（模型）設定；也接受英文名稱（`japanese` 等），省略參數則開啟選擇器。
 
-注意：RTL（從右到左）語言（`ar`、`fa`、`ur`）會原樣交給終端渲染，顯示品質取決於終端的 bidi 支援（開啟 bidi 的 iTerm2、WezTerm、Windows Terminal 都能正常顯示）。
+注意：RTL（從右到左）語言（`ar`、`he`、`fa`、`ur`）會原樣交給終端渲染，顯示品質取決於終端的 bidi 支援（開啟 bidi 的 iTerm2、WezTerm、Windows Terminal 都能正常顯示）。
 
 ## 選擇翻譯模型
 

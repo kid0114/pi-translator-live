@@ -325,6 +325,7 @@ const LANGUAGE_NAMES = {
 	it: "Italian",
 	ru: "Russian",
 	ar: "Arabic",
+	he: "Hebrew",
 	hi: "Hindi",
 	th: "Thai",
 	vi: "Vietnamese",
@@ -381,6 +382,10 @@ const DISPLAY_MESSAGES: Record<LanguageCode, { pending: string; failed: string }
 	},
 	ru: { pending: "Перевод ответа…", failed: "Не удалось перевести ответ. Оригинал: /translator original." },
 	ar: { pending: "جارٍ ترجمة الرد…", failed: "فشلت ترجمة الرد. استخدم /translator original لعرض النص الأصلي." },
+	he: {
+		pending: "מתרגם את התשובה…",
+		failed: "תרגום התשובה נכשל. השתמשו ב־/translator original כדי לצפות במקור.",
+	},
 	hi: {
 		pending: "उत्तर का अनुवाद हो रहा है…",
 		failed: "उत्तर का अनुवाद विफल हुआ। मूल पाठ देखने के लिए /translator original का उपयोग करें।",

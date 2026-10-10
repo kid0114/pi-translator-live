@@ -65,13 +65,13 @@ Translation starts enabled. Commands:
 
 > Naming note: `default input` selects the language replies are **displayed** in; `default output` selects the language your input is translated **into** and the main model replies in.
 
-Language arguments accept codes (`en`, `zh-CN`, `zh-TW`, `ja`, …) or English names; omit the argument to open a picker. 32 languages are built in.
+Language arguments accept codes (`en`, `zh-CN`, `zh-TW`, `ja`, …) or English names; omit the argument to open a picker. 33 languages are built in.
 
 While an input translation is running, press Esc to cancel it.
 
 ## Supported languages
 
-All 32 built-in languages can be used as the input (display) language or the output (main-model) language in any combination — the source language is auto-detected by the translator model.
+All 33 built-in languages can be used as the input (display) language or the output (main-model) language in any combination — the source language is auto-detected by the translator model.
 
 | Code | Language | Code | Language |
 |---|---|---|---|
@@ -91,10 +91,11 @@ All 32 built-in languages can be used as the input (display) language or the out
 | `ur` | Urdu | `te` | Telugu |
 | `mr` | Marathi | `bn` | Bengali |
 | `ta` | Tamil | `jv` | Javanese |
+| `he` | Hebrew | | |
 
 Set with `/translator default input <code>` (display) and `/translator default output <code>` (model); English names (`japanese`, …) also work, and omitting the argument opens a picker.
 
-Note: right-to-left languages (`ar`, `fa`, `ur`) are passed to the terminal as-is; display quality depends on your terminal's bidi support (iTerm2 with bidi enabled, WezTerm, and Windows Terminal handle it well).
+Note: right-to-left languages (`ar`, `he`, `fa`, `ur`) are passed to the terminal as-is; display quality depends on your terminal's bidi support (iTerm2 with bidi enabled, WezTerm, and Windows Terminal handle it well).
 
 ## Choosing a translator model
 
