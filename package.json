@@ -1,0 +1,14 @@
+{
+  "name": "pi-translator-live",
+  "version": "0.1.0",
+  "description": "Translate pi input and replies: input translated to the output (main-model) language, replies displayed in the input (display) language; code, commands, paths and URLs stay byte-for-byte intact",
+  "keywords": [
+    "pi-package"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  }
+}
