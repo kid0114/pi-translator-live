@@ -1,4 +1,4 @@
-# pi-translator-live
+# pi-translator-live 🔥
 
 [English](README.md)
 
