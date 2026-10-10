@@ -69,6 +69,33 @@ Language arguments accept codes (`en`, `zh-CN`, `zh-TW`, `ja`, …) or English n
 
 While an input translation is running, press Esc to cancel it.
 
+## Supported languages
+
+All 32 built-in languages can be used as the input (display) language or the output (main-model) language in any combination — the source language is auto-detected by the translator model.
+
+| Code | Language | Code | Language |
+|---|---|---|---|
+| `en` | English | `ru` | Russian |
+| `zh-CN` | Simplified Chinese | `ar` | Arabic |
+| `zh-TW` | Traditional Chinese | `hi` | Hindi |
+| `ja` | Japanese | `th` | Thai |
+| `ko` | Korean | `vi` | Vietnamese |
+| `fr` | French | `id` | Indonesian |
+| `de` | German | `ms` | Malay |
+| `es` | Spanish | `tl` | Filipino |
+| `pt` | Portuguese | `tr` | Turkish |
+| `it` | Italian | `pl` | Polish |
+| `cs` | Czech | `nl` | Dutch |
+| `km` | Khmer | `my` | Burmese |
+| `fa` | Persian | `gu` | Gujarati |
+| `ur` | Urdu | `te` | Telugu |
+| `mr` | Marathi | `bn` | Bengali |
+| `ta` | Tamil | `jv` | Javanese |
+
+Set with `/translator default input <code>` (display) and `/translator default output <code>` (model); English names (`japanese`, …) also work, and omitting the argument opens a picker.
+
+Note: right-to-left languages (`ar`, `fa`, `ur`) are passed to the terminal as-is; display quality depends on your terminal's bidi support (iTerm2 with bidi enabled, WezTerm, and Windows Terminal handle it well).
+
 ## Choosing a translator model
 
 ### Local models (recommended when available)
