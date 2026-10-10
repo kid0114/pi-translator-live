@@ -18,10 +18,25 @@
 pi install git:github.com/kid0114/pi-translator-live
 ```
 
+然後重新啟動 pi。首次進入互動工作階段時會出現一次性選擇器，請選擇預設翻譯模型；選擇會存入 `~/.pi/agent/translator.json`。
+
 免安裝試用：
 
 ```bash
 pi -e git:github.com/kid0114/pi-translator-live
+```
+
+鎖定發行版本而非追蹤 master：
+
+```bash
+pi install git:github.com/kid0114/pi-translator-live@v0.1.0
+```
+
+更新 / 移除：
+
+```bash
+pi update --extensions
+pi remove git:github.com/kid0114/pi-translator-live
 ```
 
 ## 需求
