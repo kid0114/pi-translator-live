@@ -5,7 +5,7 @@ Live translation for [pi](https://github.com/earendil-works/pi): your input is t
 
 - Automatic source-language detection — type in any language
 - Bidirectional: both input→output and reply→display translation, each toggleable independently (`/translator input` translates only input)
-- Real-time display: while a reply is being generated you see a localized "translating…" placeholder, never the untranslated original; when translation completes (typically 1–3s on a local model) the rendered Markdown swaps directly to your reading language
+- Display translation: while a reply is being generated you see a localized "translating…" placeholder; after the reply finishes, validated translations replace its prose. This is not token-by-token translation streaming.
 - Code blocks, inline code, commands, paths, and URLs stay byte-for-byte intact
 - Translation runs on a separate, user-selected model; the main model choice is never changed
 - Fails closed on input: a failed translation is never sent — your draft is restored to the editor
@@ -101,7 +101,7 @@ Note: right-to-left languages (`ar`, `he`, `fa`, `ur`) are passed to the termina
 
 ### Local models (recommended when available)
 
-A local model keeps your text on your machine and answers in milliseconds. Any OpenAI-compatible server works — llama.cpp, LM Studio, vLLM, SGLang, Ollama, or an MLX server. Small dedicated translation models (e.g. a Hy-MT2-class model) or small instruct models (7B-class) are plenty.
+A local model keeps your text on your machine. Latency depends on model size, hardware, server load, and the number of prose segments. Any OpenAI-compatible server works — llama.cpp, LM Studio, vLLM, SGLang, Ollama, or an MLX server.
 
 Register the endpoint in your own `~/.pi/agent/models.json`:
 
@@ -132,8 +132,20 @@ Use a hosted model you have already authenticated in pi — no extra setup is ne
 ## How it works
 
 - **Input direction (fail-closed):** your prose is translated to the output language before dispatch. If translation fails, nothing is sent and your draft returns to the editor. Commands, `!shell`, paths, and code are never translated.
-- **Display direction (degrades gracefully):** replies show a "translating…" placeholder while generating; prose segments are translated when the message finalizes, and a Markdown display transform swaps in the cached translation. History and what the model receives are untouched. On failure the original text is shown.
+- **Display direction (degrades gracefully):** replies show a "translating…" placeholder while generating; prose segments are translated when the message finalizes, and a Markdown display transform swaps in the cached translation. History and what the model receives are untouched. If translation fails or reaches its 30-second display deadline, validated translations remain; unresolved prose shows an explicit localized failure message alongside its original text.
 - A system-prompt hook asks the main model to write its replies in the output language, preserving your task, code, paths, and tool arguments.
+- Marked batches contain at most **8 prose slots** and **1,200 characters**, including markers and separators. An indivisible oversized slot is translated alone.
+- Unique, canonical segment identities can arrive out of order. Missing, duplicate, ambiguous, or invalid segments are retried individually; already validated segments are not requested again. Request failures do not trigger blind batch retries.
+- Input stays all-or-nothing: no partially translated draft is submitted. Mode, session, model, or language changes cancel stale work and prevent stale cache updates.
+
+## Verification
+
+```bash
+node --experimental-strip-types --test extensions/translator/translator-core.test.ts
+```
+
+The regression suite exercises bounded batching, selective retries, malformed identities, protected source bytes, partial-result retention, cancellation, and fail-closed input. OMP and Pi share the same core algorithm but retain their own host APIs and deadlines; the maintained OMP host supports a 65-second handler budget around the translator's 60-second internal deadline.
+
 
 ## Privacy
 
