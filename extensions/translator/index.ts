@@ -28,8 +28,10 @@
  *    before finalizing the message, so the display translation cache is hot before the final render.
  * 10. registerAssistantTextDisplay -> registerMarkdownTransformer (synchronous, cache-only). The transform
  *     context carries no message timestamp, so lookups use the current inputLanguage. Streaming renders
- *     return the source unchanged; only the finalized message is swapped. Display-path translation uses a
- *     shorter deadline (DISPLAY_DEADLINE_MS) so a translator outage cannot freeze message finalization.
+ *     show the per-language pending placeholder (matching OMP's transient behavior); the finalized message
+ *     swaps to the translation from the hot cache. Display-path translation uses a shorter deadline
+ *     (DISPLAY_DEADLINE_MS) so a translator outage cannot freeze message finalization, and failures cache
+ *     the identity mapping so the original text is never masked by an error placeholder.
  * 11. ctx.models.current() -> ctx.model; ctx.agent.kind -> dropped (pi extensions have no agent facet);
  *     ctx.setTimeout/clearTimer -> global timers; ctx.abortSignal -> ctx.signal.
  * 12. modelRegistry.getApiKey(model, sessionId, { signal }) + getProviderHeaders(provider) + pi-ai complete()
@@ -782,11 +784,14 @@ export default function translator(pi: ExtensionAPI) {
 		}
 	});
 
-	// Pi's markdown transformer is synchronous and has no message timestamp: serve only hot cache entries,
-	// leave streaming renders untouched, and let message_end fill the cache before the final render.
+	// Pi's markdown transformer is synchronous and has no message timestamp: serve only hot cache entries.
+	// While streaming, show the pending placeholder instead of the original; message_end fills the cache
+	// before the final render, so the user sees translation-in-progress, then the translated reply.
 	pi.registerMarkdownTransformer((source, context) => {
-		if (mode !== "both" || context.messageType !== "assistant" || context.isStreaming) return source;
-		return cache.get(`${inputLanguage}\0${source}`) ?? source;
+		if (mode !== "both" || context.messageType !== "assistant") return source;
+		const hit = cache.get(`${inputLanguage}\0${source}`);
+		if (hit !== undefined) return hit;
+		return context.isStreaming ? DISPLAY_MESSAGES[inputLanguage].pending : source;
 	});
 
 	pi.on("session_start", async (_event, ctx) => {
@@ -863,7 +868,8 @@ export default function translator(pi: ExtensionAPI) {
 		}
 		if (mode !== "both") return undefined;
 		if (message.stopReason === "aborted" || message.stopReason === "error") {
-			for (const text of texts) remember(`${language}\0${text}`, DISPLAY_MESSAGES[language].failed);
+			// Never mask content: cache the identity mapping so the original shows through.
+			for (const text of texts) remember(`${language}\0${text}`, text);
 			return undefined;
 		}
 		const missing = texts.filter(text => !cache.has(`${language}\0${text}`));
@@ -885,7 +891,8 @@ export default function translator(pi: ExtensionAPI) {
 			}
 		} catch {
 			if (epoch === generation && mode === "both") {
-				for (const source of missing) remember(`${language}\0${source}`, DISPLAY_MESSAGES[language].failed);
+				// Never mask content: on failure the original text is shown, not an error placeholder.
+				for (const source of missing) remember(`${language}\0${source}`, source);
 			}
 		}
 		// Deliberately never return content: the main message and history remain untouched.
