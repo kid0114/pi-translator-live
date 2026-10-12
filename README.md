@@ -101,7 +101,7 @@ Note: right-to-left languages (`ar`, `he`, `fa`, `ur`) are passed to the termina
 
 ### Local models (recommended when available)
 
-A local model keeps your text on your machine. Latency depends on model size, hardware, server load, and the number of prose segments. Any OpenAI-compatible server works — llama.cpp, LM Studio, vLLM, SGLang, Ollama, or an MLX server.
+A local model keeps your text on your machine. Latency depends on document length, model size, hardware, and server load. Any OpenAI-compatible server works — llama.cpp, LM Studio, vLLM, SGLang, Ollama, or an MLX server.
 
 Register the endpoint in your own `~/.pi/agent/models.json`:
 
@@ -121,7 +121,7 @@ Register the endpoint in your own `~/.pi/agent/models.json`:
 Notes:
 
 - `apiKey` is required by pi even when the server ignores authentication — a dummy value like `"local"` is fine. Without it pi does not list the provider as available.
-- The server must accept a `system` role message (the translation instruction) plus one `user` message per prose segment.
+- The server must accept a `system` role message (the translation instruction) plus one `user` message containing the complete protected document.
 
 Then run `/translator default local-translator/<model-id>` once to save it.
 
@@ -131,12 +131,15 @@ Use a hosted model you have already authenticated in pi — no extra setup is ne
 
 ## How it works
 
-- **Input direction (fail-closed):** your prose is translated to the output language before dispatch. If translation fails, nothing is sent and your draft returns to the editor. Commands, `!shell`, paths, and code are never translated.
-- **Display direction (degrades gracefully):** replies show a "translating…" placeholder while generating; prose segments are translated when the message finalizes, and a Markdown display transform swaps in the cached translation. History and what the model receives are untouched. If translation fails or reaches its 30-second display deadline, validated translations remain; unresolved prose shows an explicit localized failure message alongside its original text.
+- **Input direction (fail-closed):** your prose is translated to the output language before dispatch. If translation fails, nothing is sent. The current request restores its original draft only when the editor is empty; a newer draft or session is never overwritten. Commands, `!shell`, paths, and code are never translated.
+- **Display direction (atomic fallback):** replies show a "translating…" placeholder while generating. Once finalized, the complete reply is translated and validated before a Markdown display transform publishes it. History and what the main model receives are untouched. Failure shows the complete original reply, including original table cells, with one categorized status outside the reply—not failure text or counts inside paragraphs or cells.
 - A system-prompt hook asks the main model to write its replies in the output language, preserving your task, code, paths, and tool arguments.
-- Marked batches contain at most **8 prose slots** and **1,200 characters**, including markers and separators. An indivisible oversized slot is translated alone.
-- Unique, canonical segment identities can arrive out of order. Missing, duplicate, ambiguous, or invalid segments are retried individually; already validated segments are not requested again. Request failures do not trigger blind batch retries.
-- Input stays all-or-nothing: no partially translated draft is submitted. Mode, session, model, or language changes cancel stale work and prevent stale cache updates.
+- Each input or reply uses **one whole-document request**, not per-cell slots or selective fragment retries. Text blocks separated by tool calls retain their order through protected boundaries.
+- A paired document wrapper keeps translated prose inside its boundaries, including Chinese without spaces. Formatting and literal bytes are restored from the source; missing, duplicate, malformed, or illegally moved markers reject the complete result. Inline literals may reorder only within the same protected prose region. Line endings, blank lines, Markdown hard breaks, and repeated spaces are protected source formatting, not text the model may collapse. Provider padding outside the wrapper is ignored; ordinary punctuation may be translated.
+- Each request owns its cancellation and **60-second output-idle timer**. The timer starts only after the first nonempty text, thinking, or tool-call delta; empty heartbeats do not reset it. Queue/prefill waiting has no extension deadline, but provider transport and retry limits still apply.
+- Mode, session, model, or language changes cancel stale work and prevent stale cache updates. A newer interactive input supersedes an older pending input.
+- Shared cross-session fair scheduling and asynchronous sharding are **not implemented**. Requests are submitted to the selected provider; backend scheduling determines interleaving.
+- Pi's Markdown transform exposes no message/block identity. Its display cache is keyed by language and trimmed source text, unlike OMP's message-aware cache; identical text translated differently in separate contexts cannot be independently addressed on Pi's display surface.
 
 ## Verification
 
@@ -144,7 +147,19 @@ Use a hosted model you have already authenticated in pi — no extra setup is ne
 node --experimental-strip-types --test extensions/translator/translator-core.test.ts
 ```
 
-The regression suite exercises bounded batching, selective retries, malformed identities, protected source bytes, partial-result retention, cancellation, and fail-closed input. OMP and Pi share the same core algorithm but retain their own host APIs and deadlines; the maintained OMP host supports a 65-second handler budget around the translator's 60-second internal deadline.
+The shared core regression suite covers complete-document restoration, unspaced prose, whitespace, punctuation, protected literal bytes, bounded literal reordering, malformed boundaries, and atomic rejection of damaged Markdown. Runtime validation additionally exercises the actual Pi terminal, real HyMT2 input/output, malformed and truncated responses, overlapping requests within and across sessions, queue cancellation, newer-draft preservation, and independent output-idle clocks. Pi directly awaits extension handlers; maintained OMP handlers opt out of the host deadline with `{ timeoutMs: 0 }`. That OMP hook option is not a Pi provider option.
+
+## Troubleshooting
+
+Failures are written to `~/.pi/agent/translator.log` with direction, target language, selected model, elapsed time, category, and cause. Protection failures also include `protectionCode`; original documents and translations are not logged by the extension.
+
+After editing extension files, restart Pi to load the changed modules. Switching translator models or toggling translation does not reload extension source.
+
+- `idle-timeout`: output started, then stopped progressing for 60 seconds.
+- `provider-timeout` or `provider`: the provider/transport failed; queue waiting alone is not an extension timeout.
+- `completion`, `language`, or `protection`: incomplete output, untranslated prose, or a violated document/literal contract. The complete original reply remains visible.
+- Input failure: nothing is sent; the original draft is restored only if doing so will not replace newer editor contents.
+- `/translator original` opens the latest completed reply's original text without changing history.
 
 
 ## Privacy
