@@ -219,6 +219,61 @@ describe("whole-document translation", () => {
 		assert.equal(prepared.restore(prepared.text.replace("苹果/香蕉", "Apple or banana")), "Apple or banana");
 	});
 
+	it("treats slash-joined ordinary words as prose while keeping real paths protected", () => {
+		for (const prose of ["read/search", "and/or", "before/after", "connectivity/service"]) {
+			const prepared = prepareTranslation(`Do ${prose} now.`);
+			assert.ok(!prepared.text.includes(`>${prose}</ph>`), prose);
+			assert.equal(prepared.restore(prepared.text.replace(prose, "譯文")), "Do 譯文 now.");
+		}
+		for (const path of ["src/utils", "src/file.ts", "/path/file.ts", "packages/app/src/index.ts"]) {
+			const prepared = prepareTranslation(`Keep ${path} intact.`);
+			assert.ok(prepared.text.includes(`>${path}</ph>`), path);
+		}
+	});
+
+	it("restores the captured marker-dense reply pattern when slash prose is translated inline", () => {
+		const source =
+			"- **Codebase work:** read/search files (`read`/`grep`/`glob`), query LSP.\n- **Debugging:** DAP debugger, log inspection.\n";
+		const prepared = prepareTranslation(source);
+		// Captured Hy-MT2 behavior: slash-joined prose translated as prose, code markers kept.
+		const translated = prepared.text
+			.replace("Codebase work:", "程式碼庫工作：")
+			.replace("read/search", "讀取/搜尋")
+			.replace(" files ", "檔案")
+			.replace(", query LSP.", "，查詢 LSP。")
+			.replace("Debugging:", "除錯：")
+			.replace(" DAP debugger, log inspection.", " DAP 除錯器、檢視日誌。");
+		const expected = source
+			.replace("Codebase work:", "程式碼庫工作：")
+			.replace("read/search", "讀取/搜尋")
+			.replace(" files ", "檔案")
+			.replace(", query LSP.", "，查詢 LSP。")
+			.replace("Debugging:", "除錯：")
+			.replace(" DAP debugger, log inspection.", " DAP 除錯器、檢視日誌。");
+		assert.equal(prepared.restore(translated), expected);
+	});
+
+	it("accepts omitted trailing whitespace-only markers but still rejects a missing literal marker", () => {
+		const prepared = prepareTranslation("First line.\n\nSecond line.\n");
+		const withoutTrailing = prepared.text.replace(/<ph id="omp0-1">\s*<\/ph>/, "");
+		assert.equal(prepared.restore(withoutTrailing), "First line.\n\nSecond line.\n");
+		const withLiteral = prepareTranslation("Keep `one` and `two` here.");
+		const missing = withLiteral.text.replace(/<ph\b[^>]*>`one`<\/ph>/, "");
+		assert.throws(() => withLiteral.restore(missing), /Missing translation marker|Incomplete translation/);
+	});
+
+	it("groups bold text containing an ampersand instead of splitting its markers", () => {
+		const source = "- **Planning & delegation:** phased plans, clean handoffs.\n";
+		const prepared = prepareTranslation(source);
+		assert.ok(prepared.text.includes(">Planning & delegation:</b>"));
+		const translated = prepared.text
+			.replace("Planning & delegation:", "規劃與分工：")
+			.replace("phased plans, clean handoffs.", "分階段計劃，乾淨交接。");
+		assert.equal(prepared.restore(translated), "- **規劃與分工：** 分階段計劃，乾淨交接。\n");
+		// An entity smuggled into emphasized prose is still rejected.
+		assert.throws(() => prepared.restore(translated.replace("規劃與分工：", "&nbsp;規劃與分工：")));
+	});
+
 	it("preserves CRLF, tabs, blank lines, hard breaks and surrounding whitespace", () => {
 		const source = " \r\n# 苹果  \r\n\r\n```sh\r\necho '中文'\r\n```\r\n\t中文\r\n香蕉 \r\n";
 		const prepared = prepareTranslation(source);

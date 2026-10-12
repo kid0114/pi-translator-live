@@ -3,11 +3,25 @@ export function isControlInput(text: string): boolean {
 	return /^(?:[/!$]|->|=>)/.test(text.trimStart()) || /^(?:\.|c)$/.test(text.trim());
 }
 
+// Conventional directory heads keep two-segment paths (src/utils) protected even
+// without a file extension; other slash-joined words are ordinary prose.
+const DIRECTORY_HEADS: Record<string, true> = {
+	applications: true, assets: true, bin: true, build: true, dist: true, docs: true,
+	etc: true, extensions: true, home: true, include: true, lib: true, library: true,
+	node_modules: true, opt: true, packages: true, public: true, sbin: true,
+	scripts: true, src: true, static: true, system: true, target: true, tests: true,
+	tmp: true, users: true, usr: true, var: true, vendor: true, volumes: true,
+};
+
 /** Reject CJK-slash-CJK as prose, not a filesystem path. */
 function isLikelyPath(match: string): boolean {
 	if (/^(?:[~.]\/|\.\.\/|[A-Za-z]:\\)/.test(match)) return true;
 	if (/\.\w{1,10}$/.test(match)) return true;
 	if (/\p{Script=Han}[^/\\]*[/\\][^/\\]*\p{Script=Han}/u.test(match) && !/[A-Za-z]{2,}/.test(match)) return false;
+	// Slash-joined ordinary words (read/search, and/or, before/after) are prose, not a
+	// path: one slash, letters only, and no conventional directory head.
+	const words = /^([\p{L}]+)\/([\p{L}]+)$/u.exec(match.replace(/\.$/, ""));
+	if (words && DIRECTORY_HEADS[words[1].toLowerCase()] !== true) return false;
 	return true;
 }
 
@@ -307,7 +321,8 @@ export function prepareTranslation(source: string): PreparedTranslation {
 			(original.literals[literalIndex]?.start ?? source.length) < end ||
 			body !== body.trim() ||
 			!/\p{L}/u.test(body) ||
-			/[\p{Cc}\p{Cf}\u2028\u2029\\`*_~#|[\]<>&]/u.test(body) ||
+			/[\p{Cc}\p{Cf}\u2028\u2029\\`*_~#|[\]<>]/u.test(body) ||
+			/&(?:#\d+|#x[\da-fA-F]+|[A-Za-z][A-Za-z0-9]+);/.test(body) ||
 			(match[1].startsWith("_") && /[\p{L}\p{N}]/u.test((source[start - 1] ?? "") + (source[end] ?? "")))
 		)
 			continue;
@@ -424,7 +439,12 @@ export function prepareTranslation(source: string): PreparedTranslation {
 					throw new TranslationProtectionError("marker", `Malformed or unclosed translation marker before ${id}`);
 				}
 				if (id !== index && (!movable[index] || !movable[id] || regions[id] !== regions[index])) {
-					throw new TranslationProtectionError("marker", `Translation marker ${id} crossed a protected boundary; expected ${index}`);
+					throw new TranslationProtectionError(
+						"marker",
+						id > index
+							? `Missing translation marker ${index}; received ${id}`
+							: `Translation marker ${id} crossed a protected boundary; expected ${index}`,
+					);
 				}
 				seen.add(id);
 				const restoredGap = restoreProseGap(gaps[index], gap, previousValue, values[id]);
@@ -436,7 +456,8 @@ export function prepareTranslation(source: string): PreparedTranslation {
 					if (
 						!match[0].endsWith(closing) ||
 						!/\p{L}/u.test(body) ||
-						/[\p{Cc}\p{Cf}\u2028\u2029\\`*_~#|[\]<>&]/u.test(body)
+						/[\p{Cc}\p{Cf}\u2028\u2029\\`*_~#|[\]<>]/u.test(body) ||
+						/&(?:#\d+|#x[\da-fA-F]+|[A-Za-z][A-Za-z0-9]+);/.test(body)
 					) {
 						throw new TranslationProtectionError("emphasis", "Translation omitted or changed emphasized prose");
 					}
@@ -447,14 +468,26 @@ export function prepareTranslation(source: string): PreparedTranslation {
 				offset = match.index + match[0].length;
 				index++;
 			}
-			if (index !== values.length) {
-				throw new TranslationProtectionError("marker", `Incomplete translation: received ${index} of ${values.length} markers`);
-			}
 			const trailing = translated.slice(offset);
 			if (/<\/?(?:ph|b|i|s)\b/.test(trailing)) {
 				throw new TranslationProtectionError("marker", "Malformed or unclosed trailing translation marker");
 			}
-			const restoredTail = restoreProseGap(gaps[index], trailing, previousValue, "");
+			// Providers may omit whitespace-only markers after the final prose; their
+			// bytes are rebuilt from the source and cannot move prose across a boundary.
+			let tail = trailing;
+			while (index < values.length && /^\s*$/.test(values[index])) {
+				seen.add(index);
+				const skippedGap = restoreProseGap(gaps[index], tail, previousValue, values[index]);
+				tail = "";
+				translatedGaps.push(skippedGap);
+				restored.push(skippedGap, values[index]);
+				previousValue = values[index];
+				index++;
+			}
+			if (index !== values.length) {
+				throw new TranslationProtectionError("marker", `Incomplete translation: received ${index} of ${values.length} markers`);
+			}
+			const restoredTail = restoreProseGap(gaps[index], tail, previousValue, "");
 			translatedGaps.push(restoredTail);
 			restored.push(restoredTail);
 			const result = restored.join("");
