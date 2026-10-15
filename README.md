@@ -1,8 +1,7 @@
 # pi-translator-live 🔥
 [繁體中文](README.zh-TW.md)
 
-Live translation for [pi](https://github.com/earendil-works/pi): your input is translated into the **output language** (the language the main model thinks and replies in), and the model's replies are displayed in your **input language** (your reading language). Session history keeps the original text; translations are display-only and never touch what the model sees.
-For anyone who needs an immersive environment with a multilingual mixed agent — you stay in your language; the agent thinks and works in another.
+Live translation for [pi](https://github.com/earendil-works/pi) when you need an immersive environment with a multilingual mixed agent — including cross-border agents and programming collaboration as immersive language learning. Your input is translated into the **output language** (the language the main model thinks and replies in), and the model's replies are displayed in your **input language** (your reading language). Session history keeps the original text; translations are display-only and never touch what the model sees.
 
 - Automatic source-language detection — type in any language
 - Bidirectional: both input→output and reply→display translation, each toggleable independently (`/translator input` translates only input)
