@@ -122,6 +122,7 @@ pi remove git:github.com/kid0114/pi-translator-live
 ### 本地模型（有條件時推薦）
 
 本地模型讓文字不離開你的機器。延遲取決於文件長度、模型大小、硬體與伺服器負載。任何 OpenAI 相容伺服器都可以——llama.cpp、LM Studio、vLLM、SGLang、Ollama，或 MLX 伺服器。
+推薦本地翻譯模型：**騰訊混元 MT2（HyMT2）7B、8-bit 量化**——專用翻譯模型；以 OpenAI 相容方式提供服務，再用 `/translator default` 選用。
 
 在你自己的 `~/.pi/agent/models.json` 中註冊端點：
 

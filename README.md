@@ -121,6 +121,7 @@ Note: right-to-left languages (`ar`, `he`, `fa`, `ur`) are passed to the termina
 ### Local models (recommended when available)
 
 A local model keeps your text on your machine. Latency depends on document length, model size, hardware, and server load. Any OpenAI-compatible server works — llama.cpp, LM Studio, vLLM, SGLang, Ollama, or an MLX server.
+Recommended local translator: **Tencent Hunyuan MT2 (HyMT2) 7B, 8-bit quantized** — a dedicated translation model; serve it OpenAI-compatibly and select it with `/translator default`.
 
 Register the endpoint in your own `~/.pi/agent/models.json`:
 
