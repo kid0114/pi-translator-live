@@ -57,8 +57,14 @@ describe("parser-backed Markdown translation", () => {
 		["Alpha/Beta, Gamma One", "Alpha/Beta、Gamma One"],
 		["the app (Alpha/Beta, Gamma One)", "應用程式（Alpha/Beta、Gamma One）"],
 		["BOOT/RESET, Pointers/structs", "BOOT/RESET、指針/結構體、cJSON"],
+		["process/app rules are deliberate per-device behavior — kept as-is)", "處理/應用程式規則是刻意的逐裝置行為——維持不變。"],
+		["slash compounds before Han mid-sentence", "處理/應用程式、備份/回滾都正常。"],
+		// Same class in Arabic: candidates end at spaces, but Arabic punctuation (،؛) must not
+		// break the two-word shape either.
+		["backup/rollback works well", "النسخ/الاستعادة تعمل بشكل جيد، شكراً."],
+		["read/write mode", "وضع القراءة/الكتابة؛ مفيد"],
 	]) {
-		it(`restores recorded slash-compound translations: ${source}`, () => {
+		it(`accepts slash-compound translations: ${source}`, () => {
 			const plan = prepareTranslation(source);
 			assert.deepEqual(plan.units, [{ text: source }]);
 			const tree = parse(plan.restore([target]));

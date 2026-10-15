@@ -13,6 +13,13 @@ Live translation for [pi](https://github.com/earendil-works/pi): your input is t
 
 ## Recent improvements
 
+### Fixed in 0.1.3
+
+- **Translated prose containing slashes was falsely rejected.** When the model translated text like `backup/rollback` into Chinese, Japanese, Arabic, or other scripts, the result (a slash followed by CJK text, or trailing Arabic punctuation `،`/`؛`) could be misclassified as a protected file path. Protection validation then discarded the whole reply translation and showed the original. Path detection now requires positive evidence — a root, an extension, a known directory, digits, or multiple slashes — regardless of script.
+- **Diagnosable protection failures.** The log line for a rejected translation now includes the offending span (`span N: "…"`), so the cause is identifiable from `translator.log` alone.
+
+### 0.1.2: parser-based translation
+
 - **Parse first, translate prose only:** open-source mdast + GFM parsing replaces model-carried XML markers. The model no longer has to copy Markdown or protected literals correctly.
 - **Local reconstruction, atomic publication:** prose units are translated separately, spliced into the original source, and checked against the original Markdown structure before anything is displayed.
 - **Mixed prose fixes:** ordinary slash compounds remain translatable; character references at emphasis boundaries preserve formatting without adding visible spaces.

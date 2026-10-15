@@ -19,11 +19,17 @@ const DIRECTORY_HEADS: Record<string, true> = {
 function isLikelyPath(value: string): boolean {
 	if (/^(?:[~.]?\/|\.\.\/|[A-Za-z]:\\)/.test(value)) return true;
 	if (/\.\w{1,10}$/.test(value)) return true;
-	const words = /^([\p{L}\p{N}]+)\/([\p{L}\p{N}]+)$/u.exec(value.replace(/[.,;:!?"'”’)\]}]+$/u, ""));
-	if (!words || DIRECTORY_HEADS[words[1].toLowerCase()] === true) return true;
-	// A single slash is also natural-language punctuation, including mixed-script
-	// compounds. Roots, extensions and directory heads above remain path evidence.
-	return /\p{N}/u.test(value) && !/\p{Script=Han}/u.test(value);
+	// Rooted paths and extensions are unambiguous. Everything else needs positive path evidence;
+	// script does not matter (Han, Arabic, Latin prose all use slashes as punctuation).
+	const trimmed = value.replace(/[.,;:!?"'”’)\]}،؛、…]+$/u, "");
+	const words = /^([\p{L}\p{N}]+)\/([\p{L}\p{N}]+)$/u.exec(trimmed);
+	// word/word: path only with a known directory head, or digit-style evidence when no Han prose is present.
+	if (words) {
+		if (DIRECTORY_HEADS[words[1].toLowerCase()] === true) return true;
+		return /\p{N}/u.test(value) && !/\p{Script=Han}/u.test(value);
+	}
+	// Multi-slash chains are paths in any script; a lone slash without evidence is prose.
+	return (value.match(/[\\/]/g)?.length ?? 0) >= 2;
 }
 
 interface Span {
@@ -211,7 +217,10 @@ export function prepareTranslation(source: string): PreparedTranslation {
 				let proseChars = 0;
 				prosePieces(text, 0, text.length, piece => { proseChars += piece.end - piece.start; });
 				if (proseChars !== text.length) {
-					throw new TranslationProtectionError("prose", "Translation introduced a technical literal");
+					throw new TranslationProtectionError(
+						"prose",
+						`Translation introduced a technical literal at span ${index}: ${JSON.stringify(text.slice(0, 80))}`,
+					);
 				}
 				replacements.push({
 					...span,
