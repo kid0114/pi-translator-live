@@ -13,6 +13,11 @@ Live translation for [pi](https://github.com/earendil-works/pi): your input is t
 
 ## Recent improvements
 
+### 0.1.4: single-flight queue
+
+- All translation jobs pass through a single FIFO queue — the same mechanism as the OMP variant — so a long reply translation can never run concurrently with your input.
+- Interactive input preempts queued reply jobs: your message translates first, queued replies follow. Cancellation rejects the whole queue.
+
 ### Fixed in 0.1.3
 
 - **Translated prose containing slashes was falsely rejected.** When the model translated text like `backup/rollback` into Chinese, Japanese, Arabic, or other scripts, the result (a slash followed by CJK text, or trailing Arabic punctuation `،`/`؛`) could be misclassified as a protected file path. Protection validation then discarded the whole reply translation and showed the original. Path detection now requires positive evidence — a root, an extension, a known directory, digits, or multiple slashes — regardless of script.
@@ -42,7 +47,7 @@ pi -e git:github.com/kid0114/pi-translator-live
 Pin a release instead of tracking master:
 
 ```bash
-pi install git:github.com/kid0114/pi-translator-live@v0.1.3
+pi install git:github.com/kid0114/pi-translator-live@v0.1.4
 ```
 
 Update / remove:
@@ -154,7 +159,7 @@ Use a hosted model you have already authenticated in pi — no extra setup is ne
 - Ordinary single-slash compounds, including mixed-script prose such as `類型/reputation`, are treated as prose when there is no clear path evidence. This deliberately favors translation for ambiguous bare compounds; put an ambiguous path or technical token in inline code to preserve it explicitly.
 - Each request owns its cancellation and **60-second output-idle timer**. The timer starts only after the first nonempty text, thinking, or tool-call delta; empty heartbeats do not reset it. Queue/prefill waiting has no extension deadline, but provider transport and retry limits still apply.
 - Mode, session, model, or language changes cancel stale work and prevent stale cache updates. A newer interactive input supersedes an older pending input.
-- Shared cross-session fair scheduling and asynchronous sharding are **not implemented**. Requests are submitted to the selected provider; backend scheduling determines interleaving.
+- Requests are serialized through a single-flight queue with input priority (same mechanism as the OMP variant). Cross-session fair scheduling and asynchronous sharding remain **not implemented**.
 - Pi's Markdown transform exposes no message/block identity. Its display cache is keyed by language and trimmed source text, unlike OMP's message-aware cache; identical text translated differently in separate contexts cannot be independently addressed on Pi's display surface.
 
 ## Verification

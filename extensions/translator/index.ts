@@ -294,6 +294,7 @@ export default function translator(pi: ExtensionAPI) {
 		generation++;
 		for (const controller of active) controller.abort();
 		active.clear();
+		for (const job of jobQueue.splice(0)) job.reject(new Error("翻譯已取消。"));
 	};
 	const clear = () => {
 		cancel();
@@ -326,8 +327,36 @@ export default function translator(pi: ExtensionAPI) {
 		message.content.flatMap(block => (block.type === "text" ? [block.text] : []));
 	const displayKey = (language: LanguageCode, source: string) => `${language}\0${source.trim()}`;
 
+	// Single-flight queue (same mechanism as the OMP variant): every translation job funnels
+	// through here; interactive input jobs preempt queued reply jobs. cancel() rejects the queue.
+	const jobQueue: {
+		input: boolean;
+		run: () => Promise<unknown>;
+		resolve: (value: unknown) => void;
+		reject: (reason?: unknown) => void;
+	}[] = [];
+	let pumping = false;
+	const pump = async (): Promise<void> => {
+		if (pumping) return;
+		pumping = true;
+		try {
+			for (;;) {
+				const inputIndex = jobQueue.findIndex(job => job.input);
+				const job = inputIndex >= 0 ? jobQueue.splice(inputIndex, 1)[0] : jobQueue.shift();
+				if (!job) break;
+				try {
+					job.resolve(await job.run());
+				} catch (error) {
+					job.reject(error);
+				}
+			}
+		} finally {
+			pumping = false;
+		}
+	};
+
 	// Canonical registry streaming keeps request-time authentication inside Pi.
-	const translate = async (
+	const translateNow = async (
 		ctx: ExtensionContext,
 		sources: string[],
 		target: LanguageCode,
@@ -463,6 +492,24 @@ export default function translator(pi: ExtensionAPI) {
 		}
 	};
 
+	// All translations funnel through the single-flight queue; input preempts queued output.
+	const translate = (
+		ctx: ExtensionContext,
+		sources: string[],
+		target: LanguageCode,
+		controller: AbortController,
+		input = false,
+	): Promise<string[]> =>
+		new Promise<string[]>((resolve, reject) => {
+			jobQueue.push({
+				input,
+				run: () => translateNow(ctx, sources, target, controller, input),
+				resolve: resolve as (value: unknown) => void,
+				reject,
+			});
+			void pump();
+		});
+
 	pi.on("input", async (event, ctx) => {
 		if (!ctx.hasUI || ctx.mode !== "tui" || event.source !== "interactive") {
 			return { action: "continue" as const };
@@ -558,6 +605,8 @@ export default function translator(pi: ExtensionAPI) {
 		ctx.ui.notify(`默认翻译模型已保存为 ${spec}。`, "info");
 	});
 	pi.on("session_tree", (_event, ctx) => resetSession(ctx));
+	pi.on("session_before_switch", (_event, ctx) => resetSession(ctx));
+	pi.on("session_before_fork", (_event, ctx) => resetSession(ctx));
 	pi.on("session_shutdown", (_event, ctx) => {
 		mode = "off";
 		clear();
