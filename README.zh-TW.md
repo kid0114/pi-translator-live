@@ -43,7 +43,7 @@ pi -e git:github.com/kid0114/pi-translator-live
 鎖定發行版本而非追蹤 master：
 
 ```bash
-pi install git:github.com/kid0114/pi-translator-live@v0.1.2
+pi install git:github.com/kid0114/pi-translator-live@v0.1.3
 ```
 
 更新 / 移除：

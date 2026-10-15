@@ -42,7 +42,7 @@ pi -e git:github.com/kid0114/pi-translator-live
 Pin a release instead of tracking master:
 
 ```bash
-pi install git:github.com/kid0114/pi-translator-live@v0.1.2
+pi install git:github.com/kid0114/pi-translator-live@v0.1.3
 ```
 
 Update / remove:
