@@ -13,6 +13,12 @@ Live translation for [pi](https://github.com/earendil-works/pi) when you need an
 
 ## Recent improvements
 
+### 0.1.5: concurrent units and tuned sampling
+
+- **Concurrent units within a job.** Unique prose units are now translated **2 at a time** (`UNIT_CONCURRENCY = 2` in `extensions/translator/index.ts`). Jobs themselves remain single-flight, so input preemption and ordering are unchanged. Results are keyed by unit text and `restore()` reassembles them in original document order, so completion order can never scramble the merged output.
+- **Why 2:** a typical local server (`mlx_lm.server --decode-concurrency 4`) has 4 decode slots. Two concurrent clients (this extension and the OMP variant) at 2 each saturate the server evenly instead of one client monopolizing it. On constrained hardware, 2 in-flight requests per client is also a practical ceiling; raising it mainly queues at the server.
+- **Tuned request sampling.** Translator requests now send `temperature: 0.2` and `repetition_penalty: 1.02` (see [Recommended Hy-MT2 parameters](#recommended-hy-mt2-parameters)).
+
 ### 0.1.4: single-flight queue
 
 - All translation jobs pass through a single FIFO queue — the same mechanism as the OMP variant — so a long reply translation can never run concurrently with your input.
@@ -47,7 +53,7 @@ pi -e git:github.com/kid0114/pi-translator-live
 Pin a release instead of tracking master:
 
 ```bash
-pi install git:github.com/kid0114/pi-translator-live@v0.1.4
+pi install git:github.com/kid0114/pi-translator-live@v0.1.5
 ```
 
 Update / remove:
@@ -145,6 +151,30 @@ Notes:
 
 Then run `/translator default local-translator/<model-id>` once to save it.
 
+### Recommended Hy-MT2 parameters
+
+Tencent's official inference recommendations for Hy-MT2 1.8B/7B (model card and GitHub repo) are:
+
+| Parameter | Tencent recommendation | This extension |
+|---|---|---|
+| `temperature` | 0.7 | **0.2**, sent per request |
+| `top_p` | 0.6 (model card) / 0.8 (generation config) | server default (see below) |
+| `top_k` | 20 | server default (see below) |
+| `repetition_penalty` | 1.05 | **1.02**, sent per request |
+| `max_tokens` | 4096 | model cap (up to 16,384) |
+
+The official values optimize standalone translation quality. This extension deliberately runs a **lower temperature (0.2)**: its prompts demand strict plain-text, single-segment output that is machine-validated before anything is displayed, and near-deterministic decoding measurably reduces format violations and rejected translations. `repetition_penalty` is kept close to the recommendation (1.02 vs 1.05) to suppress repetition loops without distorting ordinary prose. Both are sent on every translator request, so they apply to whichever model is selected.
+
+`top_p` and `top_k` are **not** sent by the extension; if your server supports defaults, set them there. For `mlx_lm.server`, the launch flags matching this profile are:
+
+```bash
+python -m mlx_lm.server --model <Hy-MT2-7B-8bit> --host 127.0.0.1 --port 8644 \
+  --temp 0.2 --top-p 0.6 --top-k 20 \
+  --decode-concurrency 4 --prompt-concurrency 2
+```
+
+Server-side `--temp` is only a fallback for clients that do not specify a temperature; the extension's per-request `temperature: 0.2` takes precedence for its own traffic. Note that `mlx_lm.server` has no CLI flag for `repetition_penalty` — that is exactly why the extension sends it per request.
+
 ### No local model
 
 Use a hosted model you have already authenticated in pi — no extra setup is needed, it already appears in `/translator model`. Prefer cheap, fast, non-reasoning models (Gemini Flash-class or similar): translation runs on every input and every reply, so a heavyweight reasoning model only adds latency and token cost. The built-in default heuristic already prefers such models on first run.
@@ -154,13 +184,13 @@ Use a hosted model you have already authenticated in pi — no extra setup is ne
 - **Input direction (fail-closed):** your prose is translated to the output language before dispatch. If translation fails, nothing is sent. The current request restores its original draft only when the editor is empty; a newer draft or session is never overwritten. Commands, `!shell`, paths, and code are never translated.
 - **Display direction (atomic fallback):** replies show a "translating…" placeholder while generating. Once finalized, the complete reply is translated and validated before a Markdown display transform publishes it. History and what the main model receives are untouched. Failure shows the complete original reply, including original table cells, with one categorized status outside the reply—not failure text or counts inside paragraphs or cells.
 - A system-prompt hook asks the main model to write its replies in the output language, preserving your task, code, paths, and tool arguments.
-- **Parse-first prose units:** `mdast-util-from-markdown` with GFM parses the source before any model call. Only translatable text spans become units; identical units within a translation job share a request, and unique units are translated sequentially. Code/literal-only content needs no model request. There is no model-carried XML wrapper, marker-copying protocol, or selective fragment-retry protocol.
+- **Parse-first prose units:** `mdast-util-from-markdown` with GFM parses the source before any model call. Only translatable text spans become units; identical units within a translation job share a request, and unique units are translated with up to 2 concurrent requests (see 0.1.5 above). Code/literal-only content needs no model request. There is no model-carried XML wrapper, marker-copying protocol, or selective fragment-retry protocol.
 - **Locally preserved source:** original Markdown delimiters, block order, table layout, line endings, code, link destinations/reference IDs, and recognized commands, paths, URLs, and other technical literals stay on the client. Explicit link labels can be translated without changing their destinations. Literals remain in their original positions rather than being reordered by the model.
 - **Reconstruction and validation:** translated prose is escaped as text and spliced into its original source spans. The final document is parsed again; its Markdown structure and protected literal values must match the original before the whole input/reply is accepted. Missing prose, introduced technical literals, or structural changes reject the complete result. Character references may appear beside emphasis delimiters in the raw reconstructed Markdown; they render as ordinary characters without extra visible spacing.
 - Ordinary single-slash compounds, including mixed-script prose such as `類型/reputation`, are treated as prose when there is no clear path evidence. This deliberately favors translation for ambiguous bare compounds; put an ambiguous path or technical token in inline code to preserve it explicitly.
 - Each request owns its cancellation and **60-second output-idle timer**. The timer starts only after the first nonempty text, thinking, or tool-call delta; empty heartbeats do not reset it. Queue/prefill waiting has no extension deadline, but provider transport and retry limits still apply.
 - Mode, session, model, or language changes cancel stale work and prevent stale cache updates. A newer interactive input supersedes an older pending input.
-- Requests are serialized through a single-flight queue with input priority (same mechanism as the OMP variant). Cross-session fair scheduling and asynchronous sharding remain **not implemented**.
+- Translation **jobs** are serialized through a single-flight queue with input priority (same mechanism as the OMP variant); concurrency applies **within** a job, across its prose units. Cross-session fair scheduling remains **not implemented**.
 - Pi's Markdown transform exposes no message/block identity. Its display cache is keyed by language and trimmed source text, unlike OMP's message-aware cache; identical text translated differently in separate contexts cannot be independently addressed on Pi's display surface.
 
 ## Verification
