@@ -9,12 +9,12 @@
  * /translator model provider/id selects a temporary translator without changing the main model.
  * /translator default [provider/id | clear | input [language] | output [language]] saves per-profile preferences.
  * Default input selects the display language; default output selects the main-model language.
- * Protected code, commands, paths, and URLs stay byte-for-byte intact.
+ * Protected code, math, commands, paths, and URLs stay byte-for-byte intact.
  * Display translations are memory-only. Printed terminal scrollback cannot be repainted.
  * The prompt hook specifies only the response language, not translation or the display language.
  *
  * Pi adaptations retain its registry authentication, model picker, first-run preferences,
- * Node filesystem APIs and synchronous Markdown transformer. The mdast + GFM parser
+ * Node filesystem APIs and synchronous Markdown transformer. The mdast + GFM + math parser
  * translates unique prose units sequentially, preserving syntax locally with atomic fallback.
  * Each request owns cancellation and a 60-second output-idle timer; queue/prefill waiting
  * has no extension deadline. Pi directly awaits handlers and has no timeoutMs hook option.
@@ -498,7 +498,7 @@ export default function translator(pi: ExtensionAPI) {
 				sessionId: requestSession,
 				sourceBlocks: sources.length,
 				sourceChars: sources.reduce((total, source) => total + source.length, 0),
-				parser: "mdast-gfm",
+				parser: "mdast-gfm-math",
 				proseUnits: proseUnitCount,
 				providerRequests,
 				elapsedMs: Date.now() - startedAt,

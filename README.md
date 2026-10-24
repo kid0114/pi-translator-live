@@ -13,6 +13,11 @@ Live translation for [pi](https://github.com/earendil-works/pi) when you need an
 
 ## Recent improvements
 
+### Unreleased: protected math
+
+- Inline (`$…$`) and display (`$$…$$`) LaTeX is parsed as math, kept out of translator requests, and preserved byte-for-byte. Previously, GFM-only parsing split formulas into prose fragments that could fail translation protection checks.
+- Translated dollar signs are escaped as prose so the model cannot introduce new math syntax. Existing Markdown and literal validation remains enabled.
+
 ### 0.1.5: concurrent units and tuned sampling
 
 - **Concurrent units within a job.** Unique prose units are now translated **2 at a time** (`UNIT_CONCURRENCY = 2` in `extensions/translator/index.ts`). Jobs themselves remain single-flight, so input preemption and ordering are unchanged. Results are keyed by unit text and `restore()` reassembles them in original document order, so completion order can never scramble the merged output.
@@ -42,7 +47,7 @@ Live translation for [pi](https://github.com/earendil-works/pi) when you need an
 pi install git:github.com/kid0114/pi-translator-live
 ```
 
-Then start a new pi process. Package installation installs the mdast/GFM parser dependencies automatically; no separate parser setup is needed. On the first interactive session a one-time picker asks you to choose the default translator model; your choice is saved to `~/.pi/agent/translator.json`.
+Then start a new pi process. Package installation installs the mdast/GFM/math parser dependencies automatically; no separate parser setup is needed. On the first interactive session a one-time picker asks you to choose the default translator model; your choice is saved to `~/.pi/agent/translator.json`.
 
 Try it without installing:
 
@@ -184,8 +189,8 @@ Use a hosted model you have already authenticated in pi — no extra setup is ne
 - **Input direction (fail-closed):** your prose is translated to the output language before dispatch. If translation fails, nothing is sent. The current request restores its original draft only when the editor is empty; a newer draft or session is never overwritten. Commands, `!shell`, paths, and code are never translated.
 - **Display direction (atomic fallback):** replies show a "translating…" placeholder while generating. Once finalized, the complete reply is translated and validated before a Markdown display transform publishes it. History and what the main model receives are untouched. Failure shows the complete original reply, including original table cells, with one categorized status outside the reply—not failure text or counts inside paragraphs or cells.
 - A system-prompt hook asks the main model to write its replies in the output language, preserving your task, code, paths, and tool arguments.
-- **Parse-first prose units:** `mdast-util-from-markdown` with GFM parses the source before any model call. Only translatable text spans become units; identical units within a translation job share a request, and unique units are translated with up to 2 concurrent requests (see 0.1.5 above). Code/literal-only content needs no model request. There is no model-carried XML wrapper, marker-copying protocol, or selective fragment-retry protocol.
-- **Locally preserved source:** original Markdown delimiters, block order, table layout, line endings, code, link destinations/reference IDs, and recognized commands, paths, URLs, and other technical literals stay on the client. Explicit link labels can be translated without changing their destinations. Literals remain in their original positions rather than being reordered by the model.
+- **Parse-first prose units:** `mdast-util-from-markdown` with GFM and math extensions parses the source before any model call. Only translatable text spans become units; identical units within a translation job share a request, and unique units are translated with up to 2 concurrent requests (see 0.1.5 above). Code/literal-only content needs no model request. There is no model-carried XML wrapper, marker-copying protocol, or selective fragment-retry protocol.
+- **Locally preserved source:** original Markdown delimiters, block order, table layout, line endings, code, inline math (`$…$`), display math (`$$…$$`), link destinations/reference IDs, and recognized commands, paths, URLs, and other technical literals stay on the client. Formulas never visit the translator and remain byte-for-byte intact. Explicit link labels can be translated without changing their destinations. Literals remain in their original positions rather than being reordered by the model.
 - **Reconstruction and validation:** translated prose is escaped as text and spliced into its original source spans. The final document is parsed again; its Markdown structure and protected literal values must match the original before the whole input/reply is accepted. Missing prose, introduced technical literals, or structural changes reject the complete result. Character references may appear beside emphasis delimiters in the raw reconstructed Markdown; they render as ordinary characters without extra visible spacing.
 - Ordinary single-slash compounds, including mixed-script prose such as `類型/reputation`, are treated as prose when there is no clear path evidence. This deliberately favors translation for ambiguous bare compounds; put an ambiguous path or technical token in inline code to preserve it explicitly.
 - Each request owns its cancellation and **60-second output-idle timer**. The timer starts only after the first nonempty text, thinking, or tool-call delta; empty heartbeats do not reset it. Queue/prefill waiting has no extension deadline, but provider transport and retry limits still apply.
@@ -199,7 +204,9 @@ Use a hosted model you have already authenticated in pi — no extra setup is ne
 node --experimental-strip-types --test extensions/translator/translator-core.test.ts
 ```
 
-The core regression suite covers source-span restoration, GFM tables/tasks, nested Markdown, Unicode offsets, code and technical literals, link targets, slash compounds, emphasis boundaries, escaped model punctuation, and atomic rejection of missing or unsafe prose. The command above runs the Pi package's Node test suite; parser dependencies are installed by the package manager.
+The core regression suite covers source-span restoration, GFM tables/tasks, nested Markdown, Unicode offsets, code and technical literals, link targets, slash compounds, emphasis boundaries, escaped model punctuation, and atomic rejection of missing or unsafe prose. Math cases cover inline and multiline formulas, CRLF, table cells, math-only input, and preventing translated dollar signs from introducing math syntax. The command above runs the Pi package's Node test suite; parser dependencies are installed by the package manager.
+
+**Pi verification (2026-10-24):** all 33 Node regressions passed. The saved 2,375-character bandwidth answer translated through the local Hy-MT2 service with all 26 math spans byte-identical and Markdown validation passing. A fresh Pi 1.4.0 process loaded this repository's extension explicitly and displayed Traditional Chinese prose with inline and display equations rendered correctly.
 
 **Verified OMP evidence (2026-10-15):** the canonical OMP parser core passed 22 regressions. All 40 recorded October 13–14 HyMT2 failure cases were reconstructed from cached translations after the parser fixes; the nine cases that had failed the first replay, plus an older October 10 timeout case, also passed 10 fresh real-model replays. A fresh installed OMP 18.10.3 process translated a 5,715-character historical reply in 35.805 seconds while its original viewer retained the English source. A fresh isolated Pi 1.2.0 terminal also loaded this package with the local HyMT2 endpoint: the English assistant reply displayed in Traditional Chinese, and `/translator original` retained the English source. Translation quality is not guaranteed by structural validation.
 

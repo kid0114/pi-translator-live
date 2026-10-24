@@ -1,6 +1,8 @@
 import { fromMarkdown, type Extension } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
+import { mathFromMarkdown } from "mdast-util-math";
+import { math } from "micromark-extension-math";
 import type { Nodes } from "mdast";
 
 // Commands (including skills), execution prefixes, yield queues, and continuation shortcuts.
@@ -56,8 +58,8 @@ export class TranslationProtectionError extends Error {
 	}
 }
 
-const PARSER_EXTENSIONS = [gfm()];
-const GFM_AST = gfmFromMarkdown();
+const PARSER_EXTENSIONS = [gfm(), math()];
+const MDAST_EXTENSIONS = [gfmFromMarkdown(), mathFromMarkdown()];
 const MAX_UNIT_CHARS = 1600;
 const SENTENCES = new Intl.Segmenter(undefined, { granularity: "sentence" });
 const COMMAND = /^(?:[$!][ \t]+|(?:sudo|env|git|npm|npx|pnpm|yarn|bun|node|python\d*|pip\d*|cargo|rustc|go|make|cmake|docker|kubectl|ssh|scp|rsync|curl|wget|printf|echo|cd|ls|cat|chmod|chown|rm|mv|cp|mkdir|export)[ \t]+\S)/;
@@ -82,7 +84,7 @@ function prosePieces(source: string, start: number, end: number, emit: (span: Sp
 
 /** Escape generated punctuation as text, never let the model create Markdown syntax. */
 function escapeProse(value: string): string {
-	return value.replace(/[\\`*_{}[\]<>()#!|~&+\-=.:]/g, "\\$&");
+	return value.replace(/[\\`*_{}[\]<>()#!|~&+\-=.:$]/g, "\\$&");
 }
 
 function structure(node: Nodes): unknown {
@@ -102,8 +104,8 @@ function escapeBoundaryProse(value: string, before: boolean, after: boolean): st
 }
 
 /**
- * Parse CommonMark + GFM, select text leaves, and splice translated prose at
- * original UTF-16 offsets. Syntax and technical literals never visit the model.
+ * Parse CommonMark + GFM + math, select text leaves, and splice translated prose at
+ * original UTF-16 offsets. Syntax, math and technical literals never visit the model.
  * Character references in ordinary prose retain emphasis flanking without adding
  * visible whitespace. The compiler observer excludes prefixes and source escapes.
  */
@@ -116,7 +118,7 @@ export function prepareTranslation(source: string): PreparedTranslation {
 	};
 	const tree = fromMarkdown(source, {
 		extensions: PARSER_EXTENSIONS,
-		mdastExtensions: [GFM_AST, observer],
+		mdastExtensions: [...MDAST_EXTENSIONS, observer],
 	});
 	const textLeaves: Span[] = [];
 	const boundaryStarts = new Set<number>();
@@ -239,7 +241,7 @@ export function prepareTranslation(source: string): PreparedTranslation {
 			}
 			parts.push(source.slice(cursor));
 			const result = parts.join("");
-			const restoredTree = fromMarkdown(result, { extensions: PARSER_EXTENSIONS, mdastExtensions: [GFM_AST] });
+			const restoredTree = fromMarkdown(result, { extensions: PARSER_EXTENSIONS, mdastExtensions: MDAST_EXTENSIONS });
 			if (JSON.stringify(structure(tree)) !== JSON.stringify(structure(restoredTree))) {
 				throw new TranslationProtectionError("layout", "Translation changed Markdown structure or protected literals");
 			}

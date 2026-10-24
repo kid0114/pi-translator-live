@@ -3,9 +3,14 @@ import assert from "node:assert/strict";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfm } from "micromark-extension-gfm";
 import { gfmFromMarkdown } from "mdast-util-gfm";
+import { math } from "micromark-extension-math";
+import { mathFromMarkdown } from "mdast-util-math";
 import { isControlInput, prepareTranslation, TranslationProtectionError } from "./translator-core.ts";
 
-const parse = (source: string) => fromMarkdown(source, { extensions: [gfm()], mdastExtensions: [gfmFromMarkdown()] });
+const parse = (source: string) => fromMarkdown(source, {
+	extensions: [gfm(), math()],
+	mdastExtensions: [gfmFromMarkdown(), mathFromMarkdown()],
+});
 const translated = (source: string, pairs: Record<string, string>) => {
 	const plan = prepareTranslation(source);
 	return plan.restore(plan.units.map(unit => pairs[unit.text] ?? unit.text));
@@ -140,6 +145,51 @@ describe("parser-backed Markdown translation", () => {
 		assert.deepEqual(children.map(node => node.type), ["text"]);
 		if (children[0].type !== "text") throw new Error("Translation introduced markup");
 		assert.equal(children[0].value, "[click](target) | <br>");
+	});
+
+	it("preserves inline math while translating adjacent Unicode and emphasis", () => {
+		const source = "🧪 **Bandwidth** $B = f_{\\max}$ needs units.\n";
+		assert.equal(
+			prepareTranslation(source).restore(["頻寬", "需要單位。"]),
+			"🧪 **頻寬** $B = f_{\\max}$ 需要單位。\n",
+		);
+	});
+
+	it("preserves multiline display math and CRLF while translating prose", () => {
+		const formula = "$$\r\nX(f) = \\int_{-\\infty}^{\\infty} x(t) e^{-j 2\\pi f t} \\, dt\r\n$$";
+		const source = `Spectrum:\r\n\r\n${formula}\r\n\r\nAfter.\r\n`;
+		const result = prepareTranslation(source).restore(["頻譜：", "接著。"]);
+		assert.equal(result, `頻譜：\r\n\r\n${formula}\r\n\r\n接著。\r\n`);
+		assert.deepEqual(parse(result).children.map(node => node.type), ["paragraph", "math", "paragraph"]);
+	});
+
+	it("preserves formulas inside GFM tables without translating their fragments", () => {
+		const formula = "$B_{\\text{channel}} \\ge B_{\\text{signal}}$";
+		const source = `| Condition | Effect |\n|---|---|\n| ${formula} | Clean signal |\n`;
+		const result = prepareTranslation(source).restore(["條件", "效果", "清晰訊號"]);
+		assert.equal(result, `| 條件 | 效果 |\n|---|---|\n| ${formula} | 清晰訊號 |\n`);
+		const table = parse(result).children[0];
+		if (table.type !== "table") throw new Error("Lost table");
+		assert.equal(table.children[1].children[0].children[0].type, "inlineMath");
+	});
+
+	for (const source of [
+		"$f_{\\max}$",
+		"$$B \\approx \\frac{0.35}{t_r}$$",
+		"$$\r\n10\\%\\text{--}90\\% \\, dt\r\n$$\r\n",
+	]) {
+		it(`math-only content requires no translation: ${source}`, () => {
+			assert.equal(prepareTranslation(source).restore([]), source);
+		});
+	}
+
+	it("translated dollar signs remain prose instead of creating math", () => {
+		const result = prepareTranslation("Explain the cost.").restore(["價格 $5，代號 $x$。"]);
+		const paragraph = parse(result).children[0];
+		if (paragraph.type !== "paragraph") throw new Error("Lost paragraph");
+		assert.deepEqual(paragraph.children.map(node => node.type), ["text"]);
+		if (paragraph.children[0].type !== "text") throw new Error("Introduced math");
+		assert.equal(paragraph.children[0].value, "價格 $5，代號 $x$。");
 	});
 
 	it("code-only documents restore without any translation", () => {
