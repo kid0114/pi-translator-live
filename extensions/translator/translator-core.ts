@@ -20,10 +20,10 @@ const DIRECTORY_HEADS: Record<string, true> = {
 
 function isLikelyPath(value: string): boolean {
 	if (/^(?:[~.]?\/|\.\.\/|[A-Za-z]:\\)/.test(value)) return true;
-	if (/\.\w{1,10}$/.test(value)) return true;
 	// Rooted paths and extensions are unambiguous. Everything else needs positive path evidence;
 	// script does not matter (Han, Arabic, Latin prose all use slashes as punctuation).
 	const trimmed = value.replace(/[.,;:!?"'”’)\]}،؛、…]+$/u, "");
+	if (/\.\w{1,10}$/.test(trimmed)) return true;
 	const words = /^([\p{L}\p{N}]+)\/([\p{L}\p{N}]+)$/u.exec(trimmed);
 	// word/word: path only with a known directory head, or digit-style evidence when no Han prose is present.
 	if (words) {

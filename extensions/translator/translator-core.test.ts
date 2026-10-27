@@ -79,6 +79,20 @@ describe("parser-backed Markdown translation", () => {
 		});
 	}
 
+	it("classifies extension-bearing slash compounds consistently around punctuation", () => {
+		const result = translated("Use Bun/Node.js, Go, or Python.", {
+			Use: "使用",
+			"Go, or Python.": "Go 或 Python。",
+		});
+		assert.equal(result, "使用 Bun/Node.js, Go 或 Python。");
+	});
+
+	it("keeps multi-slash ASCII paths protected while prose slashes translate", () => {
+		const plan = prepareTranslation("Extract to usr/local/bin and read docs/guide.");
+		assert.deepEqual(plan.units.map(unit => unit.text), ["Extract to", "and read"]);
+		assert.equal(plan.restore(["解壓到", "並閱讀"]), "解壓到 usr/local/bin 並閱讀 docs/guide.");
+	});
+
 	it("keeps strong nodes when translated punctuation changes closer flanking", () => {
 		const result = translated("**Every segment stays intact**. A reply has many.", {
 			"Every segment stays intact": "每個片段都保持完整。",
