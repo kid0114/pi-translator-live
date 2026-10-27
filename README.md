@@ -13,15 +13,16 @@ Live translation for [pi](https://github.com/earendil-works/pi) when you need an
 
 ## Recent improvements
 
-### Unreleased: protected math
+### Unreleased: protected math and literal classification
 
 - Inline (`$…$`) and display (`$$…$$`) LaTeX is parsed as math, kept out of translator requests, and preserved byte-for-byte. Previously, GFM-only parsing split formulas into prose fragments that could fail translation protection checks.
 - Translated dollar signs are escaped as prose so the model cannot introduce new math syntax. Existing Markdown and literal validation remains enabled.
+- Extension-bearing slash compounds followed by punctuation, such as `Bun/Node.js,`, are classified consistently during source extraction and translated-output validation. This prevents false protection rejections when surrounding punctuation changes during translation.
 
 ### 0.1.5: concurrent units and tuned sampling
 
 - **Concurrent units within a job.** Unique prose units are now translated **2 at a time** (`UNIT_CONCURRENCY = 2` in `extensions/translator/index.ts`). Jobs themselves remain single-flight, so input preemption and ordering are unchanged. Results are keyed by unit text and `restore()` reassembles them in original document order, so completion order can never scramble the merged output.
-- **Why 2 — Apple Silicon resource limits, not a protocol limit.** On an Apple Silicon Mac there is exactly one SoC: the translation server, the main agent's model (in the reference setup, a locally served 27B model), the agent process, and the OS all share the same GPU cores and the same unified memory pool and bandwidth — there is no separate VRAM to overflow into. Concurrency 2 per client is what that budget sustains: in isolation a single client measured faster at 4 concurrent requests, but that monopolizes the translation server's 4 decode slots and contends with the main model's generation on the same GPU; at 8 concurrent requests the local server began resetting connections. So 2 is a resource-driven default: two clients (this extension and the OMP variant) at 2 each exactly fill a `--decode-concurrency 4` server without starving the main model. Raise `UNIT_CONCURRENCY` only if your machine serves the translator alone or has clear headroom.
+- **Why 2 — Apple Silicon resource limits, not a protocol limit.** On an Apple Silicon Mac there is exactly one SoC: the translation server, the main agent's model, the agent process, and the OS all share the same GPU cores and the same unified memory pool and bandwidth — there is no separate VRAM to overflow into. Concurrency 2 per client is what that budget sustains: in isolation a single client measured faster at 4 concurrent requests, but that monopolizes the translation server's 4 decode slots and contends with the main model's generation on the same GPU; at 8 concurrent requests the local server began resetting connections. So 2 is a resource-driven default: two clients (this extension and the OMP variant) at 2 each exactly fill a `--decode-concurrency 4` server without starving the main model. Raise `UNIT_CONCURRENCY` only if your machine serves the translator alone or has clear headroom.
 - **Tuned request sampling.** Translator requests now send `temperature: 0.2` and `repetition_penalty: 1.02` (see [Recommended Hy-MT2 parameters](#recommended-hy-mt2-parameters)).
 
 ### 0.1.4: single-flight queue
